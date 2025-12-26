@@ -1,0 +1,22 @@
+# Secrets (DO NOT COMMIT)
+esphome/secrets.yaml
+
+# Build artifacts
+.esphome/
+.pio/
+.pioenvs/
+.piolibdeps/
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.html
