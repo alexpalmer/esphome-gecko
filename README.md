@@ -23,9 +23,6 @@ Home Assistant integration for Gecko spa systems using ESP32-S2 and Arduino Nano
 | Dupont Wires | Various | Connections between components |
 
 ### Pin Connections
-
-![](./pictures/adafruit_esp32s2.png)
-<img src="./pictures/arduino_nano_pinout.webp" width="400">
 #### ESP32-S2 to Arduino Nano Clone (UART)
 
 | ESP32-S2 Pin | Arduino Nano Clone Pin | Notes |
@@ -58,6 +55,10 @@ Output voltage: ~2.7V (within ESP32 3.3V logic threshold)
 
 ### Wiring Diagram
 
+![](./pictures/spa_pinouts.png)
+![](./pictures/spa_power.png)
+![](./pictures/adafruit_esp32s2.png)
+<img src="./pictures/arduino_nano_pinout.webp" width="400">
 ```
                     ┌─────────────────┐
                     │   Gecko Spa     │
@@ -385,6 +386,9 @@ Each response should be sent with a 5ms delay between messages.
 - Check I2C pull-up resistors
 
 ---
+
+## Credits
+Credit to https://github.com/agittins for the pictures and initial research.
 
 ## License
 
