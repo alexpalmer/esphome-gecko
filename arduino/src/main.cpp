@@ -100,13 +100,11 @@ uint8_t progCmd[18] = {
     0x00, 0x00  // [16]=PROG_ID, [17]=CHECKSUM
 };
 
-// Temperature set command (20 bytes) - TODO: Verify exact format from spa captures
-// Based on on/off command pattern, function 0x50 is assumed for temperature
-uint8_t tempCmd[20] = {
+// Temperature set command (21 bytes) - Verified from spa captures
+uint8_t tempCmd[21] = {
     0x17, 0x0A, 0x00, 0x00, 0x00, 0x17, 0x09, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x06, 0x46, 0x52, 0x51,
-    0x01, 0x50, 0x00, 0x00  // [18]=TEMP_RAW_HIGH, [19] will be checksum
-    // Note: May need adjustment after capturing actual command
+    0x00, 0x00, 0x00, 0x00, 0x07, 0x46, 0x52, 0x51,
+    0x00, 0x01, 0x02, 0x00, 0x00  // [19]=TEMP_RAW, [20]=CHECKSUM
 };
 
 uint8_t calcChecksum(uint8_t* data, uint8_t len) {
@@ -183,14 +181,16 @@ void sendProgramCommand(uint8_t prog) {
 }
 
 void sendTemperatureCommand(float tempC) {
-    // Convert temperature to raw value (multiply by 18)
-    // Valid range typically 26-40°C
+    // Convert temperature: TEMP_RAW = (temp * 18) - 512
+    // Valid range 26-40°C (verified from spa captures)
+    // Example: 36.5°C = (36.5 * 18) - 512 = 657 - 512 = 145 = 0x91
+    // Example: 37°C = (37 * 18) - 512 = 666 - 512 = 154 = 0x9A
     if (tempC < 26.0 || tempC > 40.0) return;
 
-    uint16_t tempRaw = (uint16_t)(tempC * 18.0);
-    tempCmd[18] = tempRaw;  // Temperature as single byte (range ~468-720, but spa may use lower byte only)
-    tempCmd[19] = calcChecksum(tempCmd, 20);
-    sendI2CMessage(tempCmd, 20);
+    uint8_t tempRaw = (uint8_t)((tempC * 18.0) - 512.0);
+    tempCmd[19] = tempRaw;
+    tempCmd[20] = calcChecksum(tempCmd, 21);
+    sendI2CMessage(tempCmd, 21);
 
     // Update local state
     targetTemp = tempC;

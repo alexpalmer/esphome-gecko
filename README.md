@@ -193,6 +193,7 @@ The ESP32 and Arduino communicate via UART at 115200 baud. Messages are newline-
 | `CMD:PROG:2\n` | Set program to Energy |
 | `CMD:PROG:3\n` | Set program to Super Energy |
 | `CMD:PROG:4\n` | Set program to Weekend |
+| `CMD:SETTEMP:XX.X\n` | Set target temperature (26.0-40.0°C) |
 | `CMD:STATUS\n` | Request full status update |
 
 ### Status Messages (Arduino → ESP32)
@@ -351,6 +352,34 @@ Changes the spa program.
 | Energy | `17 0B 00 00 00 17 09 00 00 00 00 00 04 4E 03 D0 02 99` |
 | Super Energy | `17 0B 00 00 00 17 09 00 00 00 00 00 04 4E 03 D0 03 98` |
 | Weekend | `17 0B 00 00 00 17 09 00 00 00 00 00 04 4E 03 D0 04 9F` |
+
+#### Temperature Set Command (21 bytes)
+
+Sets the target temperature for the spa.
+
+```
+17 0A 00 00 00 17 09 00 00 00 00 00 07 46 52 51 00 01 02 [TEMP] [CHK]
+                                                         ^^^^   ^^^
+                                                         Raw temp value
+```
+
+**Temperature Encoding:**
+
+```
+TEMP_RAW = (temperature_celsius × 18) - 512
+```
+
+| Temperature | Calculation | Raw Value |
+|-------------|-------------|-----------|
+| 26.0°C | (26 × 18) - 512 = -44 | 0xD4 |
+| 36.5°C | (36.5 × 18) - 512 = 145 | 0x91 |
+| 37.0°C | (37 × 18) - 512 = 154 | 0x9A |
+| 40.0°C | (40 × 18) - 512 = 208 | 0xD0 |
+
+**Example - Set 37°C:**
+```
+17 0A 00 00 00 17 09 00 00 00 00 00 07 46 52 51 00 01 02 9A [CHK]
+```
 
 #### GO Response Sequence
 
