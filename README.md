@@ -1,12 +1,29 @@
 # Gecko Spa Controller
 
-Home Assistant integration for Gecko spa systems using ESP32-S2 and Arduino Nano Clone as an I2C bridge.
+Home Assistant integration for Gecko spa systems using ESP32-S2 and Arduino Nano Clone as an I2C proxy.
+
+## Architecture
+
+```
+┌─────────────────┐     UART      ┌─────────────────┐     I2C      ┌─────────────┐
+│   ESP32-S2      │◄────────────►│  Arduino Nano    │◄───────────►│  Gecko Spa  │
+│                 │   (115200)    │   (I2C Proxy)    │   (0x17)    │             │
+│ - All protocol  │               │                  │             │             │
+│   logic         │  TX:hex\n     │ - Hex decode     │             │             │
+│ - Home Assistant│  ────────►   │ - Forward to I2C │             │             │
+│ - OTA updates   │               │                  │             │             │
+│                 │  RX:len:hex\n │ - Forward I2C RX │             │             │
+│                 │  ◄────────    │   as hex         │             │             │
+└─────────────────┘               └──────────────────┘             └─────────────┘
+```
+
+**Key Design Decision:** The Arduino acts as a "dumb" I2C proxy. All protocol encoding/decoding happens on the ESP32, which can be updated over WiFi (OTA). This eliminates the need to physically access the spa for firmware updates.
 
 ## Table of Contents
 
 1. [Hardware Build](#hardware-build)
 2. [Software Build & Upload](#software-build--upload)
-3. [UART Communication Protocol](#uart-communication-protocol)
+3. [UART Proxy Protocol](#uart-proxy-protocol)
 4. [I2C Protocol](#i2c-protocol)
 5. [Credits](#credits)
 
@@ -164,11 +181,11 @@ After uploading, the device will appear in Home Assistant under **Settings → D
 
 ---
 
-## UART Communication Protocol
+## UART Proxy Protocol
 
 ### Overview
 
-The ESP32 and Arduino communicate via UART at 115200 baud. Messages are newline-terminated ASCII strings.
+The Arduino acts as a transparent I2C proxy. The ESP32 sends raw I2C bytes as hex strings, and the Arduino forwards them to the I2C bus. Similarly, I2C messages received by the Arduino are sent to the ESP32 as hex strings.
 
 ### Message Format
 
@@ -182,36 +199,34 @@ The ESP32 and Arduino communicate via UART at 115200 baud. Messages are newline-
 
 | Command | Description |
 |---------|-------------|
-| `CMD:LIGHT:ON\n` | Turn spa light on |
-| `CMD:LIGHT:OFF\n` | Turn spa light off |
-| `CMD:PUMP:ON\n` | Turn main pump on |
-| `CMD:PUMP:OFF\n` | Turn main pump off |
-| `CMD:CIRC:ON\n` | Turn circulation pump on |
-| `CMD:CIRC:OFF\n` | Turn circulation pump off |
-| `CMD:PROG:0\n` | Set program to Away |
-| `CMD:PROG:1\n` | Set program to Standard |
-| `CMD:PROG:2\n` | Set program to Energy |
-| `CMD:PROG:3\n` | Set program to Super Energy |
-| `CMD:PROG:4\n` | Set program to Weekend |
-| `CMD:SETTEMP:XX.X\n` | Set target temperature (26.0-40.0°C) |
-| `CMD:STATUS\n` | Request full status update |
+| `TX:<hex>\n` | Send hex bytes to I2C bus at address 0x17 |
+| `PING\n` | Health check |
 
-### Status Messages (Arduino → ESP32)
+**Example - Send light ON command:**
+```
+TX:170A0000001709000000000646525101330163\n
+```
+
+### Responses (Arduino → ESP32)
 
 | Message | Description |
 |---------|-------------|
-| `STATUS:BOOT:SPA_BRIDGE_V1\n` | Firmware boot notification |
-| `STATUS:READY\n` | Arduino ready for commands |
-| `STATUS:CONNECTED:YES\n` | Spa connection established |
-| `STATUS:CONNECTED:NO\n` | Spa connection lost |
-| `STATUS:LIGHT:ON\n` / `OFF\n` | Light state changed |
-| `STATUS:PUMP:ON\n` / `OFF\n` | Pump state changed |
-| `STATUS:CIRC:ON\n` / `OFF\n` | Circulation state changed |
-| `STATUS:HEATING:ON\n` / `OFF\n` | Heating state changed |
-| `STATUS:STANDBY:ON\n` / `OFF\n` | Standby state changed |
-| `STATUS:PROG:N\n` | Program changed (N = 0-4) |
-| `STATUS:TEMP:XX.X:YY.Y\n` | Temperature update (target:actual) |
-| `STATUS:CMD_SENT:XXX\n` | Command acknowledged |
+| `I2C_PROXY:V1\n` | Firmware version on boot |
+| `READY\n` | Arduino ready for commands |
+| `RX:<len>:<hex>\n` | Received I2C message (length in decimal, data in hex) |
+| `TX:OK\n` | I2C transmission acknowledged |
+| `TX:ERR:INVALID_HEX\n` | Invalid hex string |
+| `TX:ERR:TOO_LONG\n` | Message exceeds 128 bytes |
+| `PONG\n` | Response to PING |
+
+**Example - Received 78-byte status message:**
+```
+RX:78:17090000001709...4F\n
+```
+
+### Protocol Logic
+
+All spa protocol logic (GO responses, command encoding, status parsing) runs on the ESP32 in `spa_protocol.h`. This allows OTA updates without physical access to the spa.
 
 ---
 

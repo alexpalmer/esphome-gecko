@@ -5,8 +5,7 @@ esphome:
   name: ${device_name}
   friendly_name: Spa Controller
   includes:
-    - uart_line_sensor.h
-    - spa_climate.h
+    - spa_protocol.h
 
 esp32:
   board: featheresp32-s2
@@ -29,118 +28,31 @@ ota:
   platform: esphome
   password: !secret ota_password
 
-# UART connection to Arduino Nano
+# UART connection to Arduino I2C Proxy
 uart:
   id: arduino_uart
   tx_pin: GPIO5
   rx_pin: GPIO16
   baud_rate: 115200
-  rx_buffer_size: 256
+  rx_buffer_size: 512
 
-# Global variables for state tracking
+# Spa Protocol Component - handles all I2C protocol logic
+# The SpaProtocol instance is stored in a global for access from lambdas
 globals:
-  - id: spa_light_state
-    type: bool
-    initial_value: 'false'
-  - id: spa_pump_state
-    type: bool
-    initial_value: 'false'
-  - id: spa_circ_state
-    type: bool
-    initial_value: 'false'
-  - id: spa_heating_state
-    type: bool
-    initial_value: 'false'
-  - id: spa_standby_state
-    type: bool
-    initial_value: 'false'
-  - id: spa_program
-    type: int
-    initial_value: '255'
-  - id: spa_target_temp
-    type: float
-    initial_value: '0.0'
-  - id: spa_actual_temp
-    type: float
-    initial_value: '0.0'
-  - id: spa_connected
-    type: bool
-    initial_value: 'false'
+  - id: spa_protocol_instance
+    type: void*
+    initial_value: "nullptr"
 
-# Text sensor to receive and parse Arduino messages
-text_sensor:
+# Custom component that creates the SpaProtocol
+# Must be first so other components can reference it
+sensor:
   - platform: custom
     lambda: |-
-      auto sensor = new UartLineReader(id(arduino_uart));
-      App.register_component(sensor);
-      return {sensor};
-    text_sensors:
-      - id: arduino_message
-        name: "Arduino Raw Message"
-        internal: true
-        on_value:
-          then:
-            - lambda: |-
-                std::string msg = x;
-                ESP_LOGD("spa", "RX: %s", msg.c_str());
-
-                if (msg.find("STATUS:LIGHT:ON") != std::string::npos) {
-                  id(spa_light_state) = true;
-                  id(light_switch).publish_state(true);
-                } else if (msg.find("STATUS:LIGHT:OFF") != std::string::npos) {
-                  id(spa_light_state) = false;
-                  id(light_switch).publish_state(false);
-                } else if (msg.find("STATUS:PUMP:ON") != std::string::npos) {
-                  id(spa_pump_state) = true;
-                  id(pump_switch).publish_state(true);
-                } else if (msg.find("STATUS:PUMP:OFF") != std::string::npos) {
-                  id(spa_pump_state) = false;
-                  id(pump_switch).publish_state(false);
-                } else if (msg.find("STATUS:CIRC:ON") != std::string::npos) {
-                  id(spa_circ_state) = true;
-                  id(circ_switch).publish_state(true);
-                } else if (msg.find("STATUS:CIRC:OFF") != std::string::npos) {
-                  id(spa_circ_state) = false;
-                  id(circ_switch).publish_state(false);
-                } else if (msg.find("STATUS:HEATING:ON") != std::string::npos) {
-                  id(spa_heating_state) = true;
-                  ((SpaClimate*)id(spa_climate))->set_heating(true);
-                } else if (msg.find("STATUS:HEATING:OFF") != std::string::npos) {
-                  id(spa_heating_state) = false;
-                  ((SpaClimate*)id(spa_climate))->set_heating(false);
-                } else if (msg.find("STATUS:STANDBY:ON") != std::string::npos) {
-                  id(spa_standby_state) = true;
-                  id(standby_sensor).publish_state(true);
-                } else if (msg.find("STATUS:STANDBY:OFF") != std::string::npos) {
-                  id(spa_standby_state) = false;
-                  id(standby_sensor).publish_state(false);
-                } else if (msg.find("STATUS:CONNECTED:YES") != std::string::npos) {
-                  id(spa_connected) = true;
-                  id(connected_sensor).publish_state(true);
-                } else if (msg.find("STATUS:CONNECTED:NO") != std::string::npos) {
-                  id(spa_connected) = false;
-                  id(connected_sensor).publish_state(false);
-                } else if (msg.rfind("STATUS:PROG:", 0) == 0 && msg.length() >= 13) {
-                  int prog = msg[12] - '0';
-                  if (prog >= 0 && prog <= 4) {
-                    id(spa_program) = prog;
-                    auto call = id(program_select).make_call();
-                    call.set_index(prog);
-                    call.perform();
-                  }
-                } else if (msg.rfind("STATUS:TEMP:", 0) == 0) {
-                  size_t pos1 = msg.find(':', 12);
-                  if (pos1 != std::string::npos) {
-                    float target = atof(msg.substr(12, pos1-12).c_str());
-                    float actual = atof(msg.substr(pos1+1).c_str());
-                    id(spa_target_temp) = target;
-                    id(spa_actual_temp) = actual;
-                    // Update climate entity
-                    auto *climate = (SpaClimate*)id(spa_climate);
-                    climate->set_current_temperature(actual);
-                    climate->set_target_temperature(target);
-                  }
-                }
+      auto proto = new SpaProtocol(id(arduino_uart));
+      id(spa_protocol_instance) = proto;
+      App.register_component(proto);
+      return {};
+    sensors: []
 
 # Switches for controlling spa
 switch:
@@ -148,43 +60,55 @@ switch:
     id: light_switch
     name: "Spa Light"
     icon: "mdi:lightbulb"
-    lambda: return id(spa_light_state);
+    optimistic: false
+    lambda: |-
+      auto proto = (SpaProtocol*)id(spa_protocol_instance);
+      if (proto) return proto->get_light_state();
+      return false;
     turn_on_action:
-      - uart.write:
-          id: arduino_uart
-          data: "CMD:LIGHT:ON\n"
+      - lambda: |-
+          auto proto = (SpaProtocol*)id(spa_protocol_instance);
+          if (proto) proto->send_light_command(true);
     turn_off_action:
-      - uart.write:
-          id: arduino_uart
-          data: "CMD:LIGHT:OFF\n"
+      - lambda: |-
+          auto proto = (SpaProtocol*)id(spa_protocol_instance);
+          if (proto) proto->send_light_command(false);
 
   - platform: template
     id: pump_switch
     name: "Spa Pump"
     icon: "mdi:pump"
-    lambda: return id(spa_pump_state);
+    optimistic: false
+    lambda: |-
+      auto proto = (SpaProtocol*)id(spa_protocol_instance);
+      if (proto) return proto->get_pump_state();
+      return false;
     turn_on_action:
-      - uart.write:
-          id: arduino_uart
-          data: "CMD:PUMP:ON\n"
+      - lambda: |-
+          auto proto = (SpaProtocol*)id(spa_protocol_instance);
+          if (proto) proto->send_pump_command(true);
     turn_off_action:
-      - uart.write:
-          id: arduino_uart
-          data: "CMD:PUMP:OFF\n"
+      - lambda: |-
+          auto proto = (SpaProtocol*)id(spa_protocol_instance);
+          if (proto) proto->send_pump_command(false);
 
   - platform: template
     id: circ_switch
     name: "Spa Circulation"
     icon: "mdi:rotate-3d-variant"
-    lambda: return id(spa_circ_state);
+    optimistic: false
+    lambda: |-
+      auto proto = (SpaProtocol*)id(spa_protocol_instance);
+      if (proto) return proto->get_circ_state();
+      return false;
     turn_on_action:
-      - uart.write:
-          id: arduino_uart
-          data: "CMD:CIRC:ON\n"
+      - lambda: |-
+          auto proto = (SpaProtocol*)id(spa_protocol_instance);
+          if (proto) proto->send_circ_command(true);
     turn_off_action:
-      - uart.write:
-          id: arduino_uart
-          data: "CMD:CIRC:OFF\n"
+      - lambda: |-
+          auto proto = (SpaProtocol*)id(spa_protocol_instance);
+          if (proto) proto->send_circ_command(false);
 
 # Program selector
 select:
@@ -202,43 +126,31 @@ select:
     optimistic: true
     set_action:
       - lambda: |-
+          auto proto = (SpaProtocol*)id(spa_protocol_instance);
+          if (!proto) return;
           int prog = 1;
           if (x == "Away") prog = 0;
           else if (x == "Standard") prog = 1;
           else if (x == "Energy") prog = 2;
           else if (x == "Super Energy") prog = 3;
           else if (x == "Weekend") prog = 4;
-          char cmd[20];
-          sprintf(cmd, "CMD:PROG:%d\n", prog);
-          id(arduino_uart).write_str(cmd);
+          proto->send_program_command(prog);
 
-# Climate entity for spa control
+# Climate entity for temperature control
 climate:
   - platform: custom
     lambda: |-
-      auto spa = new SpaClimate(id(arduino_uart));
-      App.register_component(spa);
-      return {spa};
+      auto proto = (SpaProtocol*)id(spa_protocol_instance);
+      auto climate = new SpaClimate(proto);
+      if (proto) proto->set_climate(climate);
+      App.register_component(climate);
+      return {climate};
     climates:
       - id: spa_climate
         name: "Spa"
 
-# Internal sensors for state tracking (used by climate)
-sensor:
-  - platform: template
-    id: target_temp_sensor
-    internal: true
-
-  - platform: template
-    id: actual_temp_sensor
-    internal: true
-
 # Binary sensors for status
 binary_sensor:
-  - platform: template
-    id: heating_sensor
-    internal: true
-
   - platform: template
     id: standby_sensor
     name: "Spa Standby"
@@ -250,20 +162,33 @@ binary_sensor:
     icon: "mdi:connection"
     device_class: connectivity
 
-# Request status on boot and periodically
+# Register entity pointers with SpaProtocol after they're created
 interval:
-  - interval: 60s
+  - interval: 1s
+    startup_delay: 2s
     then:
-      - uart.write:
-          id: arduino_uart
-          data: "CMD:STATUS\n"
+      - lambda: |-
+          static bool initialized = false;
+          if (!initialized) {
+            auto proto = (SpaProtocol*)id(spa_protocol_instance);
+            if (proto) {
+              proto->set_light_switch(id(light_switch));
+              proto->set_pump_switch(id(pump_switch));
+              proto->set_circ_switch(id(circ_switch));
+              proto->set_program_select(id(program_select));
+              proto->set_standby_sensor(id(standby_sensor));
+              proto->set_connected_sensor(id(connected_sensor));
+              initialized = true;
+              ESP_LOGI("spa", "Entity pointers registered with SpaProtocol");
+            }
+          }
 
-# Button to manually refresh status
+# Button to manually request status
 button:
   - platform: template
     name: "Refresh Spa Status"
     icon: "mdi:refresh"
     on_press:
-      - uart.write:
-          id: arduino_uart
-          data: "CMD:STATUS\n"
+      - lambda: |-
+          auto proto = (SpaProtocol*)id(spa_protocol_instance);
+          if (proto) proto->request_status();
