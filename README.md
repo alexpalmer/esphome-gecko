@@ -283,23 +283,26 @@ The spa sends this message every ~60 seconds to maintain connection with control
 
 Sent periodically with current spa state. Identified by:
 - Length: 78 bytes
-- Byte[17] = 0x00
-- Byte[18] = 0x08, 0x09, or 0x0A (sub-type)
+- Byte[6] = 0x0A (status message; 0x0B = config dump, ignore)
+- Byte[17] = 0x00 (message type)
 
-**Key Byte Positions:**
+**Key Byte Positions (VERIFIED):**
 
 | Byte | Description | Values |
 |------|-------------|--------|
+| 6 | Message type | 0x0A = Status, 0x0B = Config dump (ignore) |
+| 17 | Sub-type | 0x00 = Status data |
 | 19 | Standby state | 0x03 = Standby ON |
 | 21 | Pump state | 0x02 = Pump ON |
-| 22 | Heating state | Non-zero = Heating |
+| 22 | Circulation/Heating | Bit 7 (0x80) = Circ ON, Bit 5 (0x20) = Heating |
 | 23 | Pump flag | 0x01 = Pump ON |
 | 37-38 | Target temp (raw) | Big-endian, divide by 18.0 for °C |
 | 39-40 | Actual temp (raw) | Big-endian, divide by 18.0 for °C |
-| 42 | Heating flag | Bit 2 = Heating |
-| 65 | Circulation | 0x14 = Circulation ON |
+| 42 | Heating flag | Bit 2 (0x04) = Heating |
 | 69 | Light state | 0x01 = Light ON |
 | 77 | Checksum | XOR of bytes 0-76 |
+
+**Note:** Some status messages have zeros in temperature fields (bytes 37-40). Preserve existing temperature values when this occurs.
 
 #### Program Status Message (18 bytes)
 
