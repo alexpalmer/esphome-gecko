@@ -440,7 +440,7 @@ Each response should be sent with a 5ms delay between messages.
 Credit to https://github.com/agittins for the pictures and initial research.
 
 ## Buy me a coffee
-[https://www.buymeacoffee.com/zteifel]() 
+[] (https://www.buymeacoffee.com/zteifel) 
 ## License
 
 MIT License - See LICENSE file for details.
