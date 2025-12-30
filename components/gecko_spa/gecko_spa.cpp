@@ -323,6 +323,7 @@ void GeckoSpa::parse_status_message(const uint8_t *data) {
   if (first || new_heating != heating_state_) {
     heating_state_ = new_heating;
     ESP_LOGI(TAG, "Heating: %s", heating_state_ ? "ON" : "OFF");
+    update_climate_state();
   }
 
   if (first || new_standby != standby_state_) {
@@ -337,21 +338,34 @@ void GeckoSpa::parse_status_message(const uint8_t *data) {
     target_temp_ = new_target;
     actual_temp_ = new_actual;
     ESP_LOGI(TAG, "Temp: target=%.1f actual=%.1f", target_temp_, actual_temp_);
-
-    if (climate_) {
-      climate_->target_temperature = target_temp_;
-      climate_->current_temperature = actual_temp_;
-      // Set action based on heating flag and temperature comparison
-      if (!heating_state_) {
-        climate_->action = climate::CLIMATE_ACTION_IDLE;
-      } else if (target_temp_ < actual_temp_) {
-        climate_->action = climate::CLIMATE_ACTION_COOLING;
-      } else {
-        climate_->action = climate::CLIMATE_ACTION_HEATING;
-      }
-      climate_->publish_state();
-    }
+    update_climate_state();
   }
+}
+
+void GeckoSpa::update_climate_state() {
+  if (!climate_)
+    return;
+
+  climate_->target_temperature = target_temp_;
+  climate_->current_temperature = actual_temp_;
+
+  // Set mode based on target vs actual temperature
+  if (target_temp_ < actual_temp_) {
+    climate_->mode = climate::CLIMATE_MODE_COOL;
+  } else {
+    climate_->mode = climate::CLIMATE_MODE_HEAT;
+  }
+
+  // Set action based on heating flag and temperature comparison
+  if (!heating_state_) {
+    climate_->action = climate::CLIMATE_ACTION_IDLE;
+  } else if (target_temp_ < actual_temp_) {
+    climate_->action = climate::CLIMATE_ACTION_COOLING;
+  } else {
+    climate_->action = climate::CLIMATE_ACTION_HEATING;
+  }
+
+  climate_->publish_state();
 }
 
 void GeckoSpa::send_go_response() {
@@ -381,7 +395,7 @@ void GeckoSpaClimate::setup() {
 climate::ClimateTraits GeckoSpaClimate::traits() {
   auto traits = climate::ClimateTraits();
   traits.set_supports_current_temperature(true);
-  traits.set_supported_modes({climate::CLIMATE_MODE_HEAT});
+  traits.set_supported_modes({climate::CLIMATE_MODE_HEAT, climate::CLIMATE_MODE_COOL});
   traits.set_supports_action(true);
   traits.set_visual_min_temperature(26.0);
   traits.set_visual_max_temperature(40.0);

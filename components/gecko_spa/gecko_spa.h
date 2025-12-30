@@ -92,6 +92,7 @@ class GeckoSpa : public Component, public uart::UARTDevice {
   void process_proxy_message(const char *msg);
   void process_i2c_message(const uint8_t *data, uint8_t len);
   void parse_status_message(const uint8_t *data);
+  void update_climate_state();
   void send_go_response();
 };
 
