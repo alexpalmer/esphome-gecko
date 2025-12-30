@@ -418,7 +418,14 @@ class SpaProtocol : public Component, public UARTDevice {
       if (climate_) {
         climate_->target_temperature = target_temp_;
         climate_->current_temperature = actual_temp_;
-        climate_->action = heating_state_ ? climate::CLIMATE_ACTION_HEATING : climate::CLIMATE_ACTION_IDLE;
+        // Set action: heating if actively heating, cooling if target < actual, otherwise idle
+        if (heating_state_) {
+          climate_->action = climate::CLIMATE_ACTION_HEATING;
+        } else if (target_temp_ < actual_temp_ - 0.1) {
+          climate_->action = climate::CLIMATE_ACTION_COOLING;
+        } else {
+          climate_->action = climate::CLIMATE_ACTION_IDLE;
+        }
         climate_->publish_state();
       }
     }
