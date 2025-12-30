@@ -78,12 +78,7 @@ class GeckoSpa : public Component, public uart::UARTDevice {
   char uart_buffer_[512];
   uint16_t uart_pos_{0};
 
-  // GO Response messages
-  static const uint8_t GO_RESP1[78];
-  static const uint8_t GO_RESP2[78];
-  static const uint8_t GO_RESP3[78];
-  static const uint8_t GO_RESP4[23];
-  static const uint8_t GO_RESP5[2];
+  // GO keep-alive message
   static const uint8_t GO_MESSAGE[15];
 
   uint8_t calc_checksum(const uint8_t *data, uint8_t len);
@@ -93,7 +88,6 @@ class GeckoSpa : public Component, public uart::UARTDevice {
   void process_i2c_message(const uint8_t *data, uint8_t len);
   void parse_status_message(const uint8_t *data);
   void update_climate_state();
-  void send_go_response();
 };
 
 class GeckoSpaClimate : public Component, public climate::Climate {
