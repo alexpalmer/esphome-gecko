@@ -10,11 +10,10 @@ esp32:
   framework:
     type: arduino
 
-# Import Gecko Spa component
+# Import Gecko Spa component from GitHub
 external_components:
-  - source:
-      type: local
-      path: ../components
+  - source: github://zteifel/esphome-gecko
+    components: [gecko_spa]
 
 logger:
   level: DEBUG
@@ -93,7 +92,7 @@ binary_sensor:
     icon: "mdi:connection"
     device_class: connectivity
 
-# Button to manually request status
+# Optional: Button to manually request status
 button:
   - platform: template
     name: "Refresh Spa Status"
