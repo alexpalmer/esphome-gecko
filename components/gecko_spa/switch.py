@@ -12,9 +12,9 @@ CONF_GECKO_SPA_ID = "gecko_spa_id"
 CONF_SWITCH_TYPE = "type"
 
 SWITCH_TYPES = {
-    "light": "LIGHT",
-    "pump": "PUMP",
-    "circulation": "CIRCULATION",
+    "light": "light",
+    "pump": "pump",
+    "circulation": "circulation",
 }
 
 CONFIG_SCHEMA = switch.switch_schema(GeckoSpaSwitch).extend(

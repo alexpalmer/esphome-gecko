@@ -1,7 +1,7 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import climate
-from esphome.const import CONF_ID
+from esphome.const import CONF_ID, CONF_NAME
 from . import gecko_spa_ns, GeckoSpa
 
 DEPENDENCIES = ["gecko_spa"]
@@ -12,12 +12,15 @@ GeckoSpaClimate = gecko_spa_ns.class_(
 
 CONF_GECKO_SPA_ID = "gecko_spa_id"
 
-CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
-    {
-        cv.GenerateID(): cv.declare_id(GeckoSpaClimate),
-        cv.GenerateID(CONF_GECKO_SPA_ID): cv.use_id(GeckoSpa),
-    }
-).extend(cv.COMPONENT_SCHEMA)
+CONFIG_SCHEMA = (
+    climate.climate_schema(GeckoSpaClimate)
+    .extend(
+        {
+            cv.GenerateID(CONF_GECKO_SPA_ID): cv.use_id(GeckoSpa),
+        }
+    )
+    .extend(cv.COMPONENT_SCHEMA)
+)
 
 
 async def to_code(config):
