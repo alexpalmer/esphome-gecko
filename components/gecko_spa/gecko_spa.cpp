@@ -40,8 +40,8 @@ void GeckoSpa::loop() {
     ESP_LOGW(TAG, "Spa connection lost (timeout)");
   }
 
-  // Send GO keep-alive every 30 seconds
-  if (millis() - last_go_send_time_ > 30000) {
+  // Send GO keep-alive every 60 seconds (triggers handshake sequence)
+  if (millis() - last_go_send_time_ > 60000) {
     last_go_send_time_ = millis();
     send_i2c_message(GO_MESSAGE, 15);
     ESP_LOGD(TAG, "Sent GO keep-alive");
@@ -180,9 +180,35 @@ void GeckoSpa::process_i2c_message(const uint8_t *data, uint8_t len) {
     ESP_LOGI(TAG, "Spa connected (I2C traffic detected)");
   }
 
-  // GO message (15 bytes, ends with "GO") - just log it, we send our own GO messages
+  // GO message (15 bytes, ends with "GO") - just log it
   if (len == 15 && data[13] == 0x47 && data[14] == 0x4F) {
     ESP_LOGD(TAG, "Received GO message from spa");
+    return;
+  }
+
+  // Handshake acknowledgment response
+  static const uint8_t ACK_MESSAGE[15] = {
+      0x17, 0x0A, 0x00, 0x00, 0x00, 0x17, 0x09, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x02
+  };
+
+  // 33-byte config file message - send acknowledgment
+  if (len == 33) {
+    ESP_LOGD(TAG, "Received 33-byte handshake, sending ACK");
+    send_i2c_message(ACK_MESSAGE, 15);
+    return;
+  }
+
+  // 22-byte clock message - send acknowledgment
+  if (len == 22) {
+    ESP_LOGD(TAG, "Received 22-byte clock message, sending ACK");
+    send_i2c_message(ACK_MESSAGE, 15);
+    return;
+  }
+
+  // 15-byte "LO" message - handshake complete
+  if (len == 15 && data[13] == 0x4C && data[14] == 0x4F) {
+    ESP_LOGI(TAG, "Received LO message - handshake complete");
     return;
   }
 
@@ -219,9 +245,11 @@ void GeckoSpa::process_i2c_message(const uint8_t *data, uint8_t len) {
     uint8_t msg_sub = data[18];
     ESP_LOGD(TAG, "78-byte status: type=%02X sub=%02X", msg_type, msg_sub);
 
-    if (msg_type == 0x00) {
-      ESP_LOGD(TAG, "Status bytes: [19]=%02X [21]=%02X [22]=%02X [23]=%02X [37]=%02X [38]=%02X [39]=%02X [40]=%02X [65]=%02X [69]=%02X",
-               data[19], data[21], data[22], data[23], data[37], data[38], data[39], data[40], data[65], data[69]);
+    // Parse sub=06 (pump off) or sub=07 (pump on) - both have same data layout
+    // Skip sub=05 and others which have different data structures
+    if (msg_type == 0x00 && (msg_sub == 0x06 || msg_sub == 0x07)) {
+      ESP_LOGD(TAG, "Status bytes: [21]=%02X [22]=%02X [23]=%02X [37]=%02X [38]=%02X [39]=%02X [40]=%02X [69]=%02X",
+               data[21], data[22], data[23], data[37], data[38], data[39], data[40], data[69]);
       parse_status_message(data);
     }
     return;

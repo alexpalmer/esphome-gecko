@@ -148,6 +148,32 @@ binary_sensor:
     type: connected
     name: "Spa Connected"
     device_class: connectivity
+
+# Maintenance reminder sensors
+sensor:
+  - platform: gecko_spa
+    gecko_spa_id: spa
+    type: rinse_filter
+    name: "Rinse Filter"
+    icon: "mdi:air-filter"
+
+  - platform: gecko_spa
+    gecko_spa_id: spa
+    type: clean_filter
+    name: "Clean Filter"
+    icon: "mdi:air-filter"
+
+  - platform: gecko_spa
+    gecko_spa_id: spa
+    type: change_water
+    name: "Change Water"
+    icon: "mdi:water-sync"
+
+  - platform: gecko_spa
+    gecko_spa_id: spa
+    type: spa_checkup
+    name: "Spa Checkup"
+    icon: "mdi:wrench-clock"
 ```
 
 5. **Flash and add to Home Assistant**:
@@ -170,6 +196,10 @@ After installation, you'll have these entities:
 | Spa Program | Select | Choose program (Away, Standard, Energy, Super Energy, Weekend) |
 | Spa Standby | Binary Sensor | Standby mode status |
 | Spa Connected | Binary Sensor | Connection status to spa |
+| Rinse Filter | Sensor | Days until filter rinse reminder |
+| Clean Filter | Sensor | Days until filter clean reminder |
+| Change Water | Sensor | Days until water change reminder |
+| Spa Checkup | Sensor | Days until spa checkup reminder |
 
 ---
 
@@ -341,42 +371,60 @@ uint8_t calcChecksum(uint8_t* data, uint8_t len) {
 
 ### Messages FROM Spa (Status Updates)
 
-#### GO Keep-Alive Message (15 bytes)
+#### GO Keep-Alive & Handshake Protocol
 
-The spa sends this message every ~60 seconds to maintain connection with controllers.
+The controller sends GO every 60 seconds to trigger a handshake sequence.
 
+**GO Message (15 bytes):**
 ```
 17 00 00 00 00 17 09 00 00 00 00 00 01 47 4F
                                        ^^^^
                                        "GO" ASCII
 ```
 
-**Controller must respond** with a configuration sequence (3x 78-byte messages + 1x 23-byte + 5x 2-byte ACKs) to maintain connection. If no response for 90 seconds, spa considers controller disconnected.
+**Handshake Sequence:**
+After GO is sent, the spa responds with messages that must be acknowledged:
+
+1. **Spa sends 33-byte config message** (contains XML filename like `inYT_C82.xml`)
+2. **Controller replies with ACK** (15 bytes): `17 0A 00 00 00 17 09 00 00 00 00 00 01 00 02`
+3. **Spa sends another 33-byte config message**
+4. **Controller replies with ACK**
+5. **Spa sends 22-byte clock message** (byte[13] = 0x4B = 'K', contains date/time)
+6. **Controller replies with ACK**
+7. **Spa sends 15-byte "LO" message**: bytes[13-14] = 0x4C 0x4F = "LO"
+8. **Handshake complete** - status messages now flow normally
+
+**Important:** Without proper handshake acknowledgment, commands may not receive immediate status responses.
 
 #### Status Message (78 bytes)
 
-Sent periodically with current spa state. Identified by:
+The spa sends status as 3 messages in sequence: two 78-byte messages and one 54-byte message.
+Only parse the first 78-byte message with sub=06 or sub=07 for status data.
+
+**Message Identification:**
 - Length: 78 bytes
 - Byte[6] = 0x0A (status message; 0x0B = config dump, ignore)
-- Byte[17] = 0x00 (message type)
+- Byte[17] = 0x00 (data type)
+- Byte[18] = subtype: **0x06** (pump off) or **0x07** (pump on)
 
-**Key Byte Positions (VERIFIED):**
+**Important:** Only parse sub=06 and sub=07 messages. Other subtypes (e.g., sub=05) have different data layouts and will cause incorrect status readings.
+
+**Key Byte Positions (VERIFIED for sub=06/07):**
 
 | Byte | Description | Values |
 |------|-------------|--------|
 | 6 | Message type | 0x0A = Status, 0x0B = Config dump (ignore) |
-| 17 | Sub-type | 0x00 = Status data |
-| 19 | Standby state | 0x03 = Standby ON |
+| 17 | Data type | 0x00 = Status data |
+| 18 | Subtype | 0x06 = pump off, 0x07 = pump on |
 | 21 | Pump state | 0x02 = Pump ON |
 | 22 | Circulation/Heating | Bit 7 (0x80) = Circ ON, Bit 5 (0x20) = Heating |
 | 23 | Pump flag | 0x01 = Pump ON |
 | 37-38 | Target temp (raw) | Big-endian, divide by 18.0 for °C |
 | 39-40 | Actual temp (raw) | Big-endian, divide by 18.0 for °C |
 | 42 | Heating flag | Bit 2 (0x04) = Heating |
+| 67 | Light flag | 0x78 when light ON |
 | 69 | Light state | 0x01 = Light ON |
 | 77 | Checksum | XOR of bytes 0-76 |
-
-**Note:** Some status messages have zeros in temperature fields (bytes 37-40). Preserve existing temperature values when this occurs.
 
 #### Program Status Message (18 bytes)
 
