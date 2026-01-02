@@ -106,6 +106,9 @@ void GeckoSpa::send_temperature_command(float temp_c) {
 void GeckoSpa::request_status() {
   write_str("PING\n");
 }
+void GeckoSpa::request_reset() {
+  write_str("RESET\n");
+}
 
 uint8_t GeckoSpa::calc_checksum(const uint8_t *data, uint8_t len) {
   uint8_t xor_val = 0;
