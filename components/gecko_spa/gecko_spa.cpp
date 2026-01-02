@@ -489,7 +489,8 @@ climate::ClimateTraits GeckoSpaClimate::traits() {
   traits.set_visual_min_temperature(26.0);
   traits.set_visual_max_temperature(40.0);
   traits.set_visual_temperature_step(0.5);
-  traits.set_visual_current_temperature_step(0.5);
+  traits.set_visual_current_temperature_step(0.1);
+  traits.set_visual_target_temperature_step(0.5);
   return traits;
 }
 
