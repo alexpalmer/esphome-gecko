@@ -18,8 +18,9 @@ SENSOR_TYPES = {
 
 CONFIG_SCHEMA = sensor.sensor_schema(
     unit_of_measurement="d",
-    accuracy_decimals=0,
+    accuracy_decimals=1,
     state_class=STATE_CLASS_MEASUREMENT,
+    device_class=DEVICE_CLASS_TEMPERATURE,
 ).extend(
     {
         cv.GenerateID(CONF_GECKO_SPA_ID): cv.use_id(GeckoSpa),
