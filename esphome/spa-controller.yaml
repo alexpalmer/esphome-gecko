@@ -32,10 +32,10 @@ ota:
   platform: esphome
   password: !secret ota_password
 
-# Time component for notification date calculations
+# Time synced from Home Assistant for accurate date calculations
 time:
-  - platform: sntp
-    id: sntp_time
+  - platform: homeassistant
+    id: ha_time
     timezone: Europe/Stockholm
 
 # UART connection to Arduino I2C Proxy
@@ -99,39 +99,108 @@ binary_sensor:
     icon: "mdi:connection"
     device_class: connectivity
 
-# Notification sensors (days remaining)
-sensor:
-  - platform: gecko_spa
-    gecko_spa_id: spa
-    type: rinse_filter
-    name: "Spa Rinse Filter"
-    icon: "mdi:air-filter"
-
-  - platform: gecko_spa
-    gecko_spa_id: spa
-    type: clean_filter
-    name: "Spa Clean Filter"
-    icon: "mdi:vacuum"
-
-  - platform: gecko_spa
-    gecko_spa_id: spa
-    type: change_water
-    name: "Spa Change Water"
-    icon: "mdi:water-sync"
-
-  - platform: gecko_spa
-    gecko_spa_id: spa
-    type: spa_checkup
-    name: "Spa Checkup"
-    icon: "mdi:wrench-clock"
-
-# Spa internal clock
+# Spa internal clock and notification due dates
 text_sensor:
   - platform: gecko_spa
     gecko_spa_id: spa
     type: spa_time
     name: "Spa Time"
     icon: "mdi:clock-outline"
+
+  - platform: gecko_spa
+    gecko_spa_id: spa
+    type: rinse_filter
+    id: spa_rinse_filter
+    name: "Spa Rinse Filter Due"
+    icon: "mdi:air-filter"
+
+  - platform: gecko_spa
+    gecko_spa_id: spa
+    type: clean_filter
+    id: spa_clean_filter
+    name: "Spa Clean Filter Due"
+    icon: "mdi:vacuum"
+
+  - platform: gecko_spa
+    gecko_spa_id: spa
+    type: change_water
+    id: spa_change_water
+    name: "Spa Change Water Due"
+    icon: "mdi:water-sync"
+
+  - platform: gecko_spa
+    gecko_spa_id: spa
+    type: spa_checkup
+    id: spa_checkup
+    name: "Spa Checkup Due"
+    icon: "mdi:wrench-clock"
+
+# Days remaining sensors (calculated from due dates using HA time)
+sensor:
+  - platform: template
+    name: "Spa Rinse Filter Days"
+    id: rinse_filter_days
+    unit_of_measurement: "days"
+    icon: "mdi:air-filter"
+    lambda: |-
+      auto due = id(spa_rinse_filter).state;
+      if (due.empty()) return NAN;
+      int y, m, d;
+      if (sscanf(due.c_str(), "%d-%d-%d", &y, &m, &d) != 3) return NAN;
+      auto now = id(ha_time).now();
+      if (!now.is_valid()) return NAN;
+      // Calculate days difference
+      int due_days = y*365 + m*30 + d;
+      int now_days = now.year*365 + now.month*30 + now.day_of_month;
+      return (float)(due_days - now_days);
+
+  - platform: template
+    name: "Spa Clean Filter Days"
+    id: clean_filter_days
+    unit_of_measurement: "days"
+    icon: "mdi:vacuum"
+    lambda: |-
+      auto due = id(spa_clean_filter).state;
+      if (due.empty()) return NAN;
+      int y, m, d;
+      if (sscanf(due.c_str(), "%d-%d-%d", &y, &m, &d) != 3) return NAN;
+      auto now = id(ha_time).now();
+      if (!now.is_valid()) return NAN;
+      int due_days = y*365 + m*30 + d;
+      int now_days = now.year*365 + now.month*30 + now.day_of_month;
+      return (float)(due_days - now_days);
+
+  - platform: template
+    name: "Spa Change Water Days"
+    id: change_water_days
+    unit_of_measurement: "days"
+    icon: "mdi:water-sync"
+    lambda: |-
+      auto due = id(spa_change_water).state;
+      if (due.empty()) return NAN;
+      int y, m, d;
+      if (sscanf(due.c_str(), "%d-%d-%d", &y, &m, &d) != 3) return NAN;
+      auto now = id(ha_time).now();
+      if (!now.is_valid()) return NAN;
+      int due_days = y*365 + m*30 + d;
+      int now_days = now.year*365 + now.month*30 + now.day_of_month;
+      return (float)(due_days - now_days);
+
+  - platform: template
+    name: "Spa Checkup Days"
+    id: spa_checkup_days
+    unit_of_measurement: "days"
+    icon: "mdi:wrench-clock"
+    lambda: |-
+      auto due = id(spa_checkup).state;
+      if (due.empty()) return NAN;
+      int y, m, d;
+      if (sscanf(due.c_str(), "%d-%d-%d", &y, &m, &d) != 3) return NAN;
+      auto now = id(ha_time).now();
+      if (!now.is_valid()) return NAN;
+      int due_days = y*365 + m*30 + d;
+      int now_days = now.year*365 + now.month*30 + now.day_of_month;
+      return (float)(due_days - now_days);
 
 # Button to manually request status
 button:

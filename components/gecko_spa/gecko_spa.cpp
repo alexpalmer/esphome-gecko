@@ -420,34 +420,36 @@ int GeckoSpa::days_since_2000(int day, int month, int year) {
 }
 
 void GeckoSpa::parse_notification_message(const uint8_t *data) {
-  // Get current date
-  time_t now;
-  ::time(&now);
-  struct tm *timeinfo = ::localtime(&now);
-  int today = days_since_2000(timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year - 100);
-
   // Notification entries start at byte 16, each entry is 6 bytes:
   // [ID] [DD] [MM] [YY] [INTERVAL_LO] [INTERVAL_HI]
   // ID: 0x01=Rinse Filter, 0x02=Clean Filter, 0x03=Change Water, 0x04=Spa Checkup
   for (int i = 0; i < 4; i++) {
     int offset = 16 + (i * 6);
     uint8_t id = data[offset];
-    uint8_t day = data[offset + 1];
-    uint8_t month = data[offset + 2];
-    uint8_t year = data[offset + 3];
+    uint8_t reset_day = data[offset + 1];
+    uint8_t reset_month = data[offset + 2];
+    uint8_t reset_year = data[offset + 3];  // 2-digit year
     uint16_t interval = data[offset + 4] | (data[offset + 5] << 8);
 
     if (id == 0 || interval == 0)
       continue;
 
-    int reset_day = days_since_2000(day, month, year);
-    int due_day = reset_day + interval;
-    int days_remaining = due_day - today;
+    // Calculate due date: reset_date + interval days
+    struct tm reset_tm = {};
+    reset_tm.tm_year = 100 + reset_year;  // years since 1900
+    reset_tm.tm_mon = reset_month - 1;     // 0-based month
+    reset_tm.tm_mday = reset_day + interval;  // mktime normalizes this
+    mktime(&reset_tm);  // Normalize the date
 
-    ESP_LOGI(TAG, "Notification %d: reset=%02d/%02d/%02d interval=%d days_remaining=%d",
-             id, day, month, year, interval, days_remaining);
+    // Format as ISO date string (YYYY-MM-DD)
+    char date_str[12];
+    snprintf(date_str, sizeof(date_str), "%04d-%02d-%02d",
+             1900 + reset_tm.tm_year, reset_tm.tm_mon + 1, reset_tm.tm_mday);
 
-    sensor::Sensor *sensor = nullptr;
+    ESP_LOGI(TAG, "Notification %d: reset=%02d/%02d/%02d interval=%d due=%s",
+             id, reset_day, reset_month, reset_year, interval, date_str);
+
+    text_sensor::TextSensor *sensor = nullptr;
     switch (id) {
       case 0x01:
         sensor = rinse_filter_sensor_;
@@ -464,7 +466,7 @@ void GeckoSpa::parse_notification_message(const uint8_t *data) {
     }
 
     if (sensor) {
-      sensor->publish_state((float)days_remaining);
+      sensor->publish_state(date_str);
     }
   }
 }

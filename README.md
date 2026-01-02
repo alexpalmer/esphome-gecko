@@ -206,11 +206,15 @@ After installation, you'll have these entities:
 | Spa Program | Select | Choose program (Away, Standard, Energy, Super Energy, Weekend) |
 | Spa Standby | Binary Sensor | Standby mode status |
 | Spa Connected | Binary Sensor | Connection status to spa |
-| Rinse Filter | Sensor | Days until filter rinse reminder |
-| Clean Filter | Sensor | Days until filter clean reminder |
-| Change Water | Sensor | Days until water change reminder |
-| Spa Checkup | Sensor | Days until spa checkup reminder |
 | Spa Time | Text Sensor | Spa's internal clock (DD/MM HH:MM:SS) |
+| Spa Rinse Filter Due | Text Sensor | Due date for filter rinse (YYYY-MM-DD) |
+| Spa Clean Filter Due | Text Sensor | Due date for filter clean (YYYY-MM-DD) |
+| Spa Change Water Due | Text Sensor | Due date for water change (YYYY-MM-DD) |
+| Spa Checkup Due | Text Sensor | Due date for spa checkup (YYYY-MM-DD) |
+| Spa Rinse Filter Days | Sensor | Days remaining until filter rinse |
+| Spa Clean Filter Days | Sensor | Days remaining until filter clean |
+| Spa Change Water Days | Sensor | Days remaining until water change |
+| Spa Checkup Days | Sensor | Days remaining until spa checkup |
 
 ---
 
@@ -496,6 +500,42 @@ Indicates current program selection.
 | 0x02 | Energy |
 | 0x03 | Super Energy |
 | 0x04 | Weekend |
+
+---
+
+#### Notification Message (77 bytes)
+
+Maintenance reminder data, sent with byte[6] = 0x0B.
+
+**Entry Format (6 bytes each, starting at byte 16):**
+
+```
+[ID] [DD] [MM] [YY] [INTERVAL_LO] [INTERVAL_HI]
+```
+
+| Byte | Description |
+|------|-------------|
+| ID | Notification type (see below) |
+| DD | Reset day (decimal, 1-31) |
+| MM | Reset month (decimal, 1-12) |
+| YY | Reset year (2-digit, e.g., 25 for 2025) |
+| INTERVAL_LO | Interval low byte |
+| INTERVAL_HI | Interval high byte |
+
+**Notification IDs:**
+
+| ID | Notification |
+|----|--------------|
+| 0x01 | Rinse Filter |
+| 0x02 | Clean Filter |
+| 0x03 | Change Water |
+| 0x04 | Spa Checkup |
+
+**Interval:** 16-bit little-endian value representing days between reminders.
+
+**Due Date Calculation:** `due_date = reset_date + interval_days`
+
+**Example:** Entry `01 09 12 25 1E 00` = Rinse Filter, reset Dec 9 2025, interval 30 days → due Jan 8 2026
 
 ---
 

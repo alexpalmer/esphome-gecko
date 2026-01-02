@@ -7,7 +7,6 @@
 #include "esphome/components/switch/switch.h"
 #include "esphome/components/select/select.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
-#include "esphome/components/sensor/sensor.h"
 #include "esphome/components/text_sensor/text_sensor.h"
 
 namespace esphome {
@@ -35,10 +34,10 @@ class GeckoSpa : public Component, public uart::UARTDevice {
     bs->publish_state(connected_);
   }
   void set_climate(climate::Climate *cl) { climate_ = cl; }
-  void set_rinse_filter_sensor(sensor::Sensor *s) { rinse_filter_sensor_ = s; }
-  void set_clean_filter_sensor(sensor::Sensor *s) { clean_filter_sensor_ = s; }
-  void set_change_water_sensor(sensor::Sensor *s) { change_water_sensor_ = s; }
-  void set_spa_checkup_sensor(sensor::Sensor *s) { spa_checkup_sensor_ = s; }
+  void set_rinse_filter_sensor(text_sensor::TextSensor *s) { rinse_filter_sensor_ = s; }
+  void set_clean_filter_sensor(text_sensor::TextSensor *s) { clean_filter_sensor_ = s; }
+  void set_change_water_sensor(text_sensor::TextSensor *s) { change_water_sensor_ = s; }
+  void set_spa_checkup_sensor(text_sensor::TextSensor *s) { spa_checkup_sensor_ = s; }
   void set_spa_time_sensor(text_sensor::TextSensor *s) { spa_time_sensor_ = s; }
 
   // Command methods
@@ -66,10 +65,10 @@ class GeckoSpa : public Component, public uart::UARTDevice {
   binary_sensor::BinarySensor *standby_sensor_{nullptr};
   binary_sensor::BinarySensor *connected_sensor_{nullptr};
   climate::Climate *climate_{nullptr};
-  sensor::Sensor *rinse_filter_sensor_{nullptr};
-  sensor::Sensor *clean_filter_sensor_{nullptr};
-  sensor::Sensor *change_water_sensor_{nullptr};
-  sensor::Sensor *spa_checkup_sensor_{nullptr};
+  text_sensor::TextSensor *rinse_filter_sensor_{nullptr};
+  text_sensor::TextSensor *clean_filter_sensor_{nullptr};
+  text_sensor::TextSensor *change_water_sensor_{nullptr};
+  text_sensor::TextSensor *spa_checkup_sensor_{nullptr};
   text_sensor::TextSensor *spa_time_sensor_{nullptr};
 
   // State

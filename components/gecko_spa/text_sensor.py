@@ -11,6 +11,10 @@ CONF_SENSOR_TYPE = "type"
 
 SENSOR_TYPES = {
     "spa_time": "SPA_TIME",
+    "rinse_filter": "RINSE_FILTER",
+    "clean_filter": "CLEAN_FILTER",
+    "change_water": "CHANGE_WATER",
+    "spa_checkup": "SPA_CHECKUP",
 }
 
 CONFIG_SCHEMA = text_sensor.text_sensor_schema().extend(
@@ -28,3 +32,11 @@ async def to_code(config):
     sensor_type = config[CONF_SENSOR_TYPE]
     if sensor_type == "spa_time":
         cg.add(parent.set_spa_time_sensor(var))
+    elif sensor_type == "rinse_filter":
+        cg.add(parent.set_rinse_filter_sensor(var))
+    elif sensor_type == "clean_filter":
+        cg.add(parent.set_clean_filter_sensor(var))
+    elif sensor_type == "change_water":
+        cg.add(parent.set_change_water_sensor(var))
+    elif sensor_type == "spa_checkup":
+        cg.add(parent.set_spa_checkup_sensor(var))
