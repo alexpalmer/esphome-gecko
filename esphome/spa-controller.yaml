@@ -141,3 +141,9 @@ button:
     on_press:
       - lambda: |-
           id(spa).request_status();
+  - platform: template
+    name: "Reset Arduino"
+    icon: "mdi:refresh"
+    on_press:
+      - lambda: |-
+          id(spa).request_reset();
