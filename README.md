@@ -268,6 +268,8 @@ After installation, you'll have these entities:
 | Spa Clean Filter Days | Sensor | Days remaining until filter clean |
 | Spa Change Water Days | Sensor | Days remaining until water change |
 | Spa Checkup Days | Sensor | Days remaining until spa checkup |
+| Refresh Spa Status | Button | Manually request status update |
+| Reset Arduino | Button | Reset the Arduino I2C proxy remotely |
 
 ---
 
@@ -283,13 +285,16 @@ After installation, you'll have these entities:
 | Dupont Wires | Various | Connections between components |
 
 ### Pin Connections
-#### ESP32-S2 to Arduino Nano Clone (UART)
+#### ESP32-S2 to Arduino Nano Clone (UART + Reset)
 
 | ESP32-S2 Pin | Arduino Nano Clone Pin | Notes |
 |--------------|------------------|-------|
 | GPIO5 (TX) | RX (D0) | Direct connection (3.3V → 5V tolerant) |
 | GPIO16 (RX) | TX (D1) | Via voltage divider (5V → 3.3V) |
+| GPIO17 | RST | Arduino reset (directly, no resistor needed) |
 | GND | GND | Common ground required |
+
+> **Arduino Reset:** GPIO17 directly connects to the Arduino RST pin. This allows resetting the Arduino from Home Assistant without physical access. The RST pin is active-LOW and has an internal pull-up resistor.
 
 #### Voltage Divider Circuit (Arduino TX → ESP32 RX)
 
@@ -327,28 +332,28 @@ Credits to agittins for the pictures
                     │  SDA  SCL  GND  │
                     └───┬────┬────┬───┘
                         │    │    │
-    ┌───────────────────┼────┼────┼───────────────────┐
-    │                   │    │    │                   │
-    │  ┌────────────────┴────┴────┴────────────────┐  │
-    │  │           Arduino Nano Clone              │  │
-    │  │                                           │  │
-    │  │  A4(SDA)  A5(SCL)  GND    TX(D1)  RX(D0)  │  │
-    │  └──────────────────────────────┬───────┬────┘  │
-    │                                 │       │       │
-    │                              [2.7kΩ]    │       │
-    │                                 │       │       │
-    │                                 ├───────┼───────┤
-    │                              [5.6kΩ]    │       │
-    │                                 │       │       │
-    │                                GND      │       │
-    │                                 |       │       │
-    │  ┌──────────────────────────────┴───────┴────┐  │
-    │  │         Adafruit ESP32-S2                 │  │
-    │  │                                           │  │
-    │  │  GPIO16(RX)   GPIO5(TX)   GND   USB-C     │  │
-    │  └───────────────────────────────────────────┘  │
-    │                                                 │
-    └─────────────────────────────────────────────────┘
+    ┌───────────────────┼────┼────┼───────────────────────┐
+    │                   │    │    │                       │
+    │  ┌────────────────┴────┴────┴────────────────────┐  │
+    │  │             Arduino Nano Clone                │  │
+    │  │                                               │  │
+    │  │  A4(SDA)  A5(SCL)  GND   TX(D1)  RX(D0)  RST  │  │
+    │  └──────────────────────────────┬───────┬────┬───┘  │
+    │                                 │       │    │      │
+    │                              [2.7kΩ]    │    │      │
+    │                                 │       │    │      │
+    │                                 ├───────┼────┼──────┤
+    │                              [5.6kΩ]    │    │      │
+    │                                 │       │    │      │
+    │                                GND      │    │      │
+    │                                 |       │    │      │
+    │  ┌──────────────────────────────┴───────┴────┴───┐  │
+    │  │           Adafruit ESP32-S2                   │  │
+    │  │                                               │  │
+    │  │  GPIO16(RX)  GPIO5(TX)  GPIO17(RST)  USB-C    │  │
+    │  └───────────────────────────────────────────────┘  │
+    │                                                     │
+    └─────────────────────────────────────────────────────┘
 ```
 
 ---

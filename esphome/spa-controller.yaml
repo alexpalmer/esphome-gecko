@@ -202,7 +202,14 @@ sensor:
       int now_days = now.year*365 + now.month*30 + now.day_of_month;
       return (float)(due_days - now_days);
 
-# Button to manually request status
+# Arduino reset pin (directly controls Arduino RST via GPIO)
+output:
+  - platform: gpio
+    pin: GPIO17
+    id: arduino_reset_pin
+    inverted: true  # RST is active LOW, so invert for easier logic
+
+# Buttons
 button:
   - platform: template
     name: "Refresh Spa Status"
@@ -210,3 +217,12 @@ button:
     on_press:
       - lambda: |-
           id(spa).request_status();
+
+  - platform: template
+    name: "Reset Arduino"
+    icon: "mdi:restart"
+    on_press:
+      - output.turn_on: arduino_reset_pin
+      - delay: 100ms
+      - output.turn_off: arduino_reset_pin
+      - logger.log: "Arduino reset triggered"
