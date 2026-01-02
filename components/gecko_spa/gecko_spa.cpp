@@ -371,7 +371,7 @@ void GeckoSpa::parse_status_message(const uint8_t *data) {
   }
 
   // Only update temperature if valid data was received
-  if (temp_valid && (first || abs(new_target - target_temp_) > 0.05 || abs(new_actual - actual_temp_) > 0.05)) {
+  if (temp_valid && (first || abs(new_target - target_temp_) > 0.01 || abs(new_actual - actual_temp_) > 0.01)) {
     target_temp_ = new_target;
     actual_temp_ = new_actual;
     ESP_LOGI(TAG, "Temp: target=%.1f actual=%.1f", target_temp_, actual_temp_);
@@ -488,7 +488,7 @@ climate::ClimateTraits GeckoSpaClimate::traits() {
   traits.set_supports_action(true);
   traits.set_visual_min_temperature(26.0);
   traits.set_visual_max_temperature(40.0);
-  traits.set_visual_temperature_step(0.1);
+  traits.set_visual_temperature_step(0.01);
   traits.set_visual_current_temperature_step(0.01);
   traits.set_visual_target_temperature_step(0.1);
   return traits;
