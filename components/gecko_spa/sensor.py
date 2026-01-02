@@ -1,7 +1,7 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import sensor
-from esphome.const import CONF_ID, STATE_CLASS_MEASUREMENT
+from esphome.const import CONF_ID, STATE_CLASS_MEASUREMENT, DEVICE_CLASS_TEMPERATURE
 from . import gecko_spa_ns, GeckoSpa
 
 DEPENDENCIES = ["gecko_spa"]
