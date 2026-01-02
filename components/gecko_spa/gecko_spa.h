@@ -48,6 +48,7 @@ class GeckoSpa : public Component, public uart::UARTDevice {
   void send_program_command(uint8_t prog);
   void send_temperature_command(float temp_c);
   void request_status();
+  void request_reset();
 
   // State getters
   bool get_light_state() { return light_state_; }
