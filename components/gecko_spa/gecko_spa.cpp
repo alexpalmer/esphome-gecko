@@ -476,7 +476,7 @@ void GeckoSpa::parse_notification_message(const uint8_t *data) {
 void GeckoSpaClimate::setup() {
   this->mode = climate::CLIMATE_MODE_HEAT;
   this->action = climate::CLIMATE_ACTION_IDLE;
-  this->target_temperature = 37.0;
+  this->target_temperature = 38.8;
   this->current_temperature = NAN;
   this->publish_state();
 }
@@ -488,9 +488,9 @@ climate::ClimateTraits GeckoSpaClimate::traits() {
   traits.set_supports_action(true);
   traits.set_visual_min_temperature(26.0);
   traits.set_visual_max_temperature(40.0);
-  traits.set_visual_temperature_step(0.5);
-  traits.set_visual_current_temperature_step(0.1);
-  traits.set_visual_target_temperature_step(0.5);
+  traits.set_visual_temperature_step(0.1);
+  traits.set_visual_current_temperature_step(0.01);
+  traits.set_visual_target_temperature_step(0.1);
   return traits;
 }
 
