@@ -870,7 +870,7 @@ void GeckoSpaClimate::setup() {
 
 climate::ClimateTraits GeckoSpaClimate::traits() {
   auto traits = climate::ClimateTraits();
-  traits.set_supports_current_temperature(true);
+  traits.add_feature_flags(climate::CLIMATE_FEATURE_CURRENT_TEMPERATURE);
   traits.set_supported_modes({climate::CLIMATE_MODE_HEAT, climate::CLIMATE_MODE_COOL});
   traits.set_supports_action(true);
   traits.set_visual_min_temperature(26.0);
